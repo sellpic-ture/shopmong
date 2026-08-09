@@ -2,6 +2,15 @@
 
 import { useState, useRef } from "react";
 import JSZip from "jszip";
+import {
+  ArrowRight,
+  Check,
+  FileImage,
+  Image as ImageIcon,
+  ImagePlus,
+  Upload,
+  WandSparkles,
+} from "lucide-react";
 
 
 const platforms = [
@@ -120,7 +129,7 @@ export default function Home() {
 
 
   const [selectedType, setSelectedType] =
-    useState<"thumbnail" | "detail" | null>(null);
+useState<"thumbnail" | "detail">("thumbnail");
 
 
   const [image, setImage] =
@@ -517,13 +526,21 @@ export default function Home() {
       <div className="mx-auto max-w-5xl">
               <header className="mb-10">
 
-          <h1 className="text-4xl font-bold text-gray-900">
-            🛍 샵몽
-          </h1>
+          <div className="flex items-center gap-3">
+  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
+    <WandSparkles size={22} strokeWidth={2.2} />
+  </div>
 
-          <p className="mt-3 text-gray-700">
-            쇼핑 플랫폼별 이미지 규격 자동 변환
-          </p>
+  <div>
+    <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+      샵몽
+    </h1>
+
+    <p className="mt-1 text-sm text-gray-500">
+      쇼핑 플랫폼별 이미지 규격 자동 변환
+    </p>
+  </div>
+</div>
 
         </header>
 
@@ -551,9 +568,9 @@ export default function Home() {
 
           ) : (
 
-            <div className="text-5xl">
-              📁
-            </div>
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100 text-gray-400">
+  <Upload size={25} />
+</div>
 
           )}
 
@@ -568,7 +585,7 @@ export default function Home() {
 
 
 
-          <label className="mt-5 inline-block cursor-pointer rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white">
+          <label className="mt-5 inline-block cursor-pointer text-center rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white">
 
 
             이미지 선택
@@ -625,28 +642,24 @@ export default function Home() {
                 key={platform.name}
 
 
-                onClick={()=>{
-
-                  setSelectedPlatform(platform);
-
-                  setSelectedType(null);
-
-                }}
+onClick={() => {
+  setSelectedPlatform(platform);
+  setSelectedType("thumbnail");
+}}
 
 
 
-                className={`rounded-xl border p-4 font-semibold transition
+                className={`cursor-pointer rounded-xl border p-4 font-semibold transition-all duration-150
 
-                ${
-                  selectedPlatform.name === platform.name
+${
+  selectedPlatform.name === platform.name
 
-                  ? "border-blue-600 bg-blue-50 text-blue-700"
+  ? "border-blue-600 bg-blue-50 text-blue-700"
 
-                  : "border-gray-300 text-gray-800"
+  : "border-gray-200 text-gray-800 hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50/40 hover:shadow-sm"
+}
 
-                }
-
-                `}
+`}
 
 
               >
@@ -695,18 +708,13 @@ export default function Home() {
               onClick={()=>setSelectedType("thumbnail")}
 
 
-              className={`rounded-xl border p-6 text-left transition
-
-              ${
-                selectedType === "thumbnail"
-
-                ? "border-blue-600 bg-blue-50"
-
-                : "border-gray-300"
-
-              }
-
-              `}
+              className={`cursor-pointer rounded-xl border p-6 text-left transition-all duration-150
+${
+  selectedType === "thumbnail"
+    ? "border-blue-600 bg-blue-50"
+    : "border-gray-200 hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50/40 hover:shadow-sm"
+}
+`}
 
 
             >
@@ -714,7 +722,15 @@ export default function Home() {
 
               <h3 className="text-lg font-bold text-gray-900">
 
-                🖼 대표이미지 규격
+                <div className="flex items-center gap-3">
+  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-500">
+    <ImageIcon size={20} />
+  </div>
+
+  <h3 className="text-lg font-bold text-gray-900">
+    대표이미지 규격
+  </h3>
+</div>
 
               </h3>
 
@@ -758,18 +774,13 @@ export default function Home() {
               onClick={()=>setSelectedType("detail")}
 
 
-              className={`rounded-xl border p-6 text-left transition
-
-              ${
-                selectedType === "detail"
-
-                ? "border-blue-600 bg-blue-50"
-
-                : "border-gray-300"
-
-              }
-
-              `}
+              className={`cursor-pointer rounded-xl border p-6 text-left transition-all duration-150
+${
+  selectedType === "detail"
+    ? "border-blue-600 bg-blue-50"
+    : "border-gray-200 hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50/40 hover:shadow-sm"
+}
+`}
 
 
             >
@@ -777,7 +788,15 @@ export default function Home() {
 
               <h3 className="text-lg font-bold text-gray-900">
 
-                📄 상세페이지 규격
+                <div className="flex items-center gap-3">
+  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-500">
+    <FileImage size={20} />
+  </div>
+
+  <h3 className="text-lg font-bold text-gray-900">
+    상세페이지 규격
+  </h3>
+</div>
 
               </h3>
 
