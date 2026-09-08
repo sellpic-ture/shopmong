@@ -17,6 +17,9 @@ export const metadata: Metadata = {
   title: "샵몽 | 쇼핑몰 이미지 규격 변환",
   description:
     "네이버 스마트스토어, 쿠팡, 11번가, G마켓·옥션 등 쇼핑몰 플랫폼에 맞게 상품 이미지를 간편하게 변환해보세요.",
+  verification: {
+    google: "ulgNc4-tXAoWC9aG87Tulk0WoC0TtYgjvML1goHPsXk",
+  },
   keywords: [
     "샵몽",
     "쇼핑몰 이미지 변환",
