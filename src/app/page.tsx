@@ -539,6 +539,11 @@ useState<"thumbnail" | "detail">("thumbnail");
     <p className="mt-1 text-sm text-gray-500">
       쇼핑 플랫폼별 이미지 규격 자동 변환
     </p>
+    <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-500">
+     네이버 스마트스토어, 쿠팡, 인스타그램, 11번가, G마켓·옥션 등
+      쇼핑몰 플랫폼별 상품 이미지 규격에 맞게 대표이미지와 상세페이지 이미지를
+     간편하게 변환할 수 있습니다.
+    </p>
   </div>
 </div>
 
