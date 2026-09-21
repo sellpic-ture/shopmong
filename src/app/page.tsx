@@ -131,6 +131,9 @@ export default function Home() {
   const [selectedType, setSelectedType] =
 useState<"thumbnail" | "detail">("thumbnail");
 
+const [outputFormat, setOutputFormat] =
+  useState<"jpg" | "png" | "webp">("jpg");
+
 
   const [image, setImage] =
     useState<string | null>(null);
@@ -271,6 +274,18 @@ useState<"thumbnail" | "detail">("thumbnail");
     const img =
       imageRef.current;
 
+    const mimeType =
+    outputFormat === "jpg"
+      ? "image/jpeg"
+      : outputFormat === "png"
+        ? "image/png"
+        : "image/webp";
+
+    const extension =
+      outputFormat === "jpg"
+        ? "jpg"
+        : outputFormat;
+
 
 
     // 대표이미지 변환
@@ -299,19 +314,36 @@ useState<"thumbnail" | "detail">("thumbnail");
 
 
 
-      ctx.drawImage(
+      const sourceWidth = img.naturalWidth;
+const sourceHeight = img.naturalHeight;
 
-        img,
+const sourceRatio = sourceWidth / sourceHeight;
+const targetRatio = canvas.width / canvas.height;
 
-        0,
+let cropWidth = sourceWidth;
+let cropHeight = sourceHeight;
+let cropX = 0;
+let cropY = 0;
 
-        0,
+if (sourceRatio > targetRatio) {
+  cropWidth = sourceHeight * targetRatio;
+  cropX = (sourceWidth - cropWidth) / 2;
+} else {
+  cropHeight = sourceWidth / targetRatio;
+  cropY = (sourceHeight - cropHeight) / 2;
+}
 
-        canvas.width,
-
-        canvas.height
-
-      );
+ctx.drawImage(
+  img,
+  cropX,
+  cropY,
+  cropWidth,
+  cropHeight,
+  0,
+  0,
+  canvas.width,
+  canvas.height
+);
 
 
 
@@ -321,12 +353,10 @@ useState<"thumbnail" | "detail">("thumbnail");
 
 
       link.download =
-        `${selectedPlatform.name}_대표이미지.jpg`;
+  `${selectedPlatform.name}_대표이미지.${extension}`;
 
-
-
-      link.href =
-        canvas.toDataURL("image/jpeg");
+link.href =
+  canvas.toDataURL(mimeType);
 
 
 
@@ -448,14 +478,10 @@ useState<"thumbnail" | "detail">("thumbnail");
           (resolve)=>
 
             canvas.toBlob(
-
               resolve,
-
-              "image/jpeg",
-
+              mimeType,
               0.9
-
-            )
+           )
 
         );
 
@@ -465,12 +491,9 @@ useState<"thumbnail" | "detail">("thumbnail");
 
 
         zip.file(
-
-          `${selectedPlatform.name}_상세페이지_${String(index).padStart(2,"0")}.jpg`,
-
-          blob
-
-        );
+  `${selectedPlatform.name}_상세페이지_${String(index).padStart(2, "0")}.${extension}`,
+  blob
+);
 
 
       }
@@ -524,96 +547,74 @@ useState<"thumbnail" | "detail">("thumbnail");
 
 
       <div className="mx-auto max-w-5xl">
-              <header className="mb-10">
+<header className="mb-10">
+  <div className="flex items-start justify-between gap-6">
+    <div className="flex items-center gap-3">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm">
+        <WandSparkles size={23} strokeWidth={2.2} />
+      </div>
 
-          <div className="flex items-center gap-3">
-  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
-    <WandSparkles size={22} strokeWidth={2.2} />
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+          샵몽
+        </h1>
+
+        <p className="mt-1 text-sm font-medium text-gray-500">
+          쇼핑몰 이미지 규격, 간편하게 맞춰보세요
+        </p>
+      </div>
+    </div>
+
+    <div className="hidden rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-500 md:block">
+      이미지 규격 자동 변환
+    </div>
   </div>
-
-  <div>
-    <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-      샵몽
-    </h1>
-
-    <p className="mt-1 text-sm text-gray-500">
-      쇼핑 플랫폼별 이미지 규격 자동 변환
-    </p>
-    <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-500">
-     네이버 스마트스토어, 쿠팡, 인스타그램, 11번가, G마켓·옥션 등
-      쇼핑몰 플랫폼별 상품 이미지 규격에 맞게 대표이미지와 상세페이지 이미지를
-     간편하게 변환할 수 있습니다.
-    </p>
-  </div>
-</div>
-
-        </header>
+</header>
 
 
 
 
         {/* 이미지 업로드 */}
 
-        <section className="rounded-2xl border border-gray-300 bg-white p-10 text-center shadow-sm">
+        <section className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
+  <div className="text-center">
+    {image ? (
+      <div className="mx-auto flex min-h-64 items-center justify-center rounded-2xl bg-gray-50 p-6">
+        <img
+          ref={imageRef}
+          src={image}
+          alt="업로드 이미지 미리보기"
+          className="max-h-72 max-w-full rounded-xl object-contain shadow-sm"
+        />
+      </div>
+    ) : (
+      <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+        <ImagePlus size={32} strokeWidth={1.8} />
+      </div>
+    )}
 
+    <h2 className="mt-6 text-lg font-bold text-gray-900">
+      {fileName || "상품 이미지를 업로드하세요"}
+    </h2>
 
-          {image ? (
+    {!image && (
+      <p className="mt-2 text-sm text-gray-500">
+        JPG, PNG 등 이미지 파일을 선택해주세요.
+      </p>
+    )}
 
-            <img
-
-              ref={imageRef}
-
-              src={image}
-
-              alt="preview"
-
-              className="mx-auto max-h-72 rounded-xl object-contain"
-
-            />
-
-          ) : (
-
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100 text-gray-400">
-  <Upload size={25} />
-</div>
-
-          )}
-
-
-
-          <h2 className="mt-5 font-semibold text-gray-900">
-
-            {fileName || "이미지를 업로드하세요"}
-
-          </h2>
-
-
-
-
-          <label className="mt-5 inline-block cursor-pointer text-center rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white">
-
-
-            이미지 선택
-
-
-            <input
-
-              type="file"
-
-              accept="image/*"
-
-              className="hidden"
-
-              onChange={uploadImage}
-
-            />
-
-
-          </label>
-
-
-
-        </section>
+    <label className="mt-6 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white shadow-sm transition-colors hover:bg-blue-700">
+      <Upload size={18} strokeWidth={2} />
+      {image ? "이미지 다시 선택" : "이미지 선택"}
+      <input
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={uploadImage}
+      />
+    </label>
+  </div>
+</section>
 
 
 
@@ -624,64 +625,60 @@ useState<"thumbnail" | "detail">("thumbnail");
         {/* 플랫폼 선택 */}
 
 
-        <section className="mt-6 rounded-2xl border border-gray-300 bg-white p-6 shadow-sm">
+        <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+  <div>
+    <h2 className="text-xl font-bold text-gray-900">플랫폼 선택</h2>
+    <p className="mt-1 text-sm text-gray-500">
+      변환할 쇼핑몰 플랫폼을 선택하세요.
+    </p>
+  </div>
 
+  <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    {platforms.map((platform) => {
+      const isSelected = selectedPlatform.name === platform.name;
 
-          <h2 className="text-xl font-bold text-gray-900">
-
-            플랫폼 선택
-
-          </h2>
-
-
-
-          <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-3">
-
-
-            {platforms.map((platform)=>(
-
-
-              <button
-
-
-                key={platform.name}
-
-
-onClick={() => {
-  setSelectedPlatform(platform);
-  setSelectedType("thumbnail");
-}}
-
-
-
-                className={`cursor-pointer rounded-xl border p-4 font-semibold transition-all duration-150
-
-${
-  selectedPlatform.name === platform.name
-
-  ? "border-blue-600 bg-blue-50 text-blue-700"
-
-  : "border-gray-200 text-gray-800 hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50/40 hover:shadow-sm"
-}
-
-`}
-
-
+      return (
+        <button
+          key={platform.name}
+          type="button"
+          onClick={() => setSelectedPlatform(platform)}
+          className={`group rounded-xl border p-4 text-left transition-all duration-150 ${
+            isSelected
+              ? "border-blue-600 bg-blue-50 ring-1 ring-blue-600"
+              : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
+          }`}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3
+                className={`font-semibold ${
+                  isSelected ? "text-blue-700" : "text-gray-900"
+                }`}
               >
-
                 {platform.name}
+              </h3>
 
+              <p className="mt-1 text-xs text-gray-500">
+                대표 {platform.thumbnail.width} ×{" "}
+                {platform.thumbnail.height}px
+              </p>
 
-              </button>
+              <p className="mt-1 text-xs text-gray-500">
+                상세 가로 {platform.detail.width}px
+              </p>
+            </div>
 
-
-            ))}
-
-
+            {isSelected && (
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white">
+                <Check size={15} strokeWidth={2.5} />
+              </div>
+            )}
           </div>
-
-
-        </section>
+        </button>
+      );
+    })}
+  </div>
+</section>
 
 
 
@@ -692,217 +689,234 @@ ${
         {/* 규격 선택 */}
 
 
-        <section className="mt-6 rounded-2xl border border-gray-300 bg-white p-6 shadow-sm">
-
-
-          <h2 className="text-xl font-bold text-gray-900">
-
-            변환 규격 선택
-
-          </h2>
-
-
-
-          <div className="mt-5 grid gap-6 md:grid-cols-2">
-
-
-
-            <button
-
-
-              onClick={()=>setSelectedType("thumbnail")}
-
-
-              className={`cursor-pointer rounded-xl border p-6 text-left transition-all duration-150
-${
-  selectedType === "thumbnail"
-    ? "border-blue-600 bg-blue-50"
-    : "border-gray-200 hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50/40 hover:shadow-sm"
-}
-`}
-
-
-            >
-
-
-              <h3 className="text-lg font-bold text-gray-900">
-
-                <div className="flex items-center gap-3">
-  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-500">
-    <ImageIcon size={20} />
+        <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+  <div>
+    <h2 className="text-xl font-bold text-gray-900">변환 규격 선택</h2>
+    <p className="mt-1 text-sm text-gray-500">
+      사용할 이미지 규격을 선택하세요.
+    </p>
   </div>
 
-  <h3 className="text-lg font-bold text-gray-900">
-    대표이미지 규격
-  </h3>
-</div>
-
-              </h3>
-
-
-
-              <p className="mt-4 font-semibold text-gray-900">
-
-                {selectedPlatform.thumbnail.sizeText}
-
-              </p>
-
-
-
-              <p className="mt-2 text-sm text-gray-700">
-
-                {selectedPlatform.thumbnail.maxSize}
-
-              </p>
-
-
-
-              <p className="text-sm text-gray-700">
-
-                {selectedPlatform.thumbnail.format}
-
-              </p>
-
-
-
-            </button>
-
-
-
-
-
-
-
-            <button
-
-
-              onClick={()=>setSelectedType("detail")}
-
-
-              className={`cursor-pointer rounded-xl border p-6 text-left transition-all duration-150
-${
-  selectedType === "detail"
-    ? "border-blue-600 bg-blue-50"
-    : "border-gray-200 hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50/40 hover:shadow-sm"
-}
-`}
-
-
-            >
-
-
-              <h3 className="text-lg font-bold text-gray-900">
-
-                <div className="flex items-center gap-3">
-  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-500">
-    <FileImage size={20} />
-  </div>
-
-  <h3 className="text-lg font-bold text-gray-900">
-    상세페이지 규격
-  </h3>
-</div>
-
-              </h3>
-
-
-
-              <p className="mt-4 font-semibold text-gray-900">
-
-                {selectedPlatform.detail.sizeText}
-
-              </p>
-
-
-
-              <p className="mt-2 text-sm text-gray-700">
-
-                {selectedPlatform.detail.height}
-
-              </p>
-
-
-
-              <p className="text-sm text-gray-700">
-
-                {selectedPlatform.detail.maxSize}
-
-              </p>
-
-
-
-            </button>
-
-
-
+  <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+    <button
+      type="button"
+      onClick={() => setSelectedType("thumbnail")}
+      className={`rounded-2xl border p-5 text-left transition-all ${
+        selectedType === "thumbnail"
+          ? "border-blue-600 bg-blue-50 ring-1 ring-blue-600"
+          : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
+      }`}
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          <div
+            className={`flex h-11 w-11 items-center justify-center rounded-xl ${
+              selectedType === "thumbnail"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-100 text-gray-500"
+            }`}
+          >
+            <ImageIcon size={21} />
           </div>
 
+          <div>
+            <h3 className="font-bold text-gray-900">
+              대표이미지
+            </h3>
+            <p className="mt-0.5 text-xs text-gray-500">
+              상품 목록에 표시되는 이미지
+            </p>
+          </div>
+        </div>
 
-        </section>
-                {/* 변환 예상 */}
+        {selectedType === "thumbnail" && (
+          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-white">
+            <Check size={15} strokeWidth={2.5} />
+          </div>
+        )}
+      </div>
 
-        {imageSize.width > 0 && selectedType && (
+      <div className="mt-5 rounded-xl bg-white/80 px-4 py-3">
+        <p className="text-xs font-medium text-gray-400">변환 규격</p>
+        <p className="mt-1 text-lg font-bold text-gray-900">
+          {selectedPlatform.thumbnail.width} ×{" "}
+          {selectedPlatform.thumbnail.height}px
+        </p>
+      </div>
+    </button>
 
-          <section className="mt-6 rounded-2xl border border-gray-300 bg-white p-6 shadow-sm">
+    <button
+      type="button"
+      onClick={() => setSelectedType("detail")}
+      className={`rounded-2xl border p-5 text-left transition-all ${
+        selectedType === "detail"
+          ? "border-blue-600 bg-blue-50 ring-1 ring-blue-600"
+          : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
+      }`}
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          <div
+            className={`flex h-11 w-11 items-center justify-center rounded-xl ${
+              selectedType === "detail"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-100 text-gray-500"
+            }`}
+          >
+            <FileImage size={21} />
+          </div>
 
+          <div>
+            <h3 className="font-bold text-gray-900">
+              상세페이지
+            </h3>
+            <p className="mt-0.5 text-xs text-gray-500">
+              상세페이지용 이미지로 변환
+            </p>
+          </div>
+        </div>
 
-            <h2 className="text-xl font-bold text-gray-900">
+        {selectedType === "detail" && (
+          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-white">
+            <Check size={15} strokeWidth={2.5} />
+          </div>
+        )}
+      </div>
 
-              📊 변환 예상
+      <div className="mt-5 rounded-xl bg-white/80 px-4 py-3">
+        <p className="text-xs font-medium text-gray-400">변환 규격</p>
+        <p className="mt-1 text-lg font-bold text-gray-900">
+          가로 {selectedPlatform.detail.width}px
+        </p>
+        <p className="mt-1 text-xs text-gray-500">
+          {selectedPlatform.detail.height}
+        </p>
+      </div>
+    </button>
+  </div>
+</section>
 
-            </h2>
+{/* 출력 형식 선택 */}
+<section className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+  <div>
+    <h2 className="text-xl font-bold text-gray-900">
+      출력 형식 선택
+    </h2>
+    <p className="mt-1 text-sm text-gray-500">
+      변환할 이미지의 파일 형식을 선택하세요.
+    </p>
+  </div>
 
+  <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+    {[
+      {
+        value: "jpg" as const,
+        name: "JPG",
+        description: "범용성이 높은 이미지 형식",
+      },
+      {
+        value: "png" as const,
+        name: "PNG",
+        description: "화질 손실 없이 저장",
+      },
+      {
+        value: "webp" as const,
+        name: "WebP",
+        description: "효율적인 이미지 형식",
+      },
+    ].map((format) => {
+      const isSelected = outputFormat === format.value;
 
+      return (
+        <button
+          key={format.value}
+          type="button"
+          onClick={() => setOutputFormat(format.value)}
+          className={`rounded-xl border p-4 text-left transition-all ${
+            isSelected
+              ? "border-blue-600 bg-blue-50 ring-1 ring-blue-600"
+              : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
+          }`}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3
+                className={`font-bold ${
+                  isSelected ? "text-blue-700" : "text-gray-900"
+                }`}
+              >
+                {format.name}
+              </h3>
 
-            <div className="mt-4 space-y-2 text-gray-800">
-
-
-              <p>
-
-                원본 이미지 :
-
-                <span className="ml-2 font-semibold">
-
-                  {imageSize.width} × {imageSize.height}px
-
-                </span>
-
+              <p className="mt-1 text-xs text-gray-500">
+                {format.description}
               </p>
-
-
-
-              <p>
-
-                변환 결과 :
-
-                <span className="ml-2 font-semibold">
-
-                  {getConvertInfo()?.width} × {getConvertInfo()?.height}px
-
-                </span>
-
-              </p>
-
-
-
-              {getConvertInfo()?.warning && (
-
-                <p className="mt-4 font-bold text-blue-600">
-
-                  ℹ️ 업로드 규격에 맞춰 자동 분할됩니다.
-
-                </p>
-
-              )}
-
-
-
             </div>
 
+            {isSelected && (
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white">
+                <Check size={15} strokeWidth={2.5} />
+              </div>
+            )}
+          </div>
+        </button>
+      );
+    })}
+  </div>
+</section>
 
-          </section>
+                {/* 변환 예상 */}
 
-        )}
+{imageSize.width > 0 && selectedType && (
+  <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+    <div>
+      <h2 className="text-xl font-bold text-gray-900">
+        변환 예상
+      </h2>
+
+      <p className="mt-1 text-sm text-gray-500">
+        현재 선택한 플랫폼과 규격으로 변환됩니다.
+      </p>
+    </div>
+
+    <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="rounded-2xl bg-gray-50 p-5">
+        <p className="text-xs font-semibold text-gray-400">
+          원본 이미지
+        </p>
+
+        <p className="mt-2 text-lg font-bold text-gray-900">
+          {imageSize.width} × {imageSize.height}px
+        </p>
+      </div>
+
+      <div className="rounded-2xl bg-blue-50 p-5">
+        <p className="text-xs font-semibold text-blue-500">
+          변환 결과
+        </p>
+
+        <p className="mt-2 text-lg font-bold text-gray-900">
+          {getConvertInfo()?.width} × {getConvertInfo()?.height}px
+        </p>
+
+        <p className="mt-1 text-sm text-gray-500">
+          {selectedPlatform.name} ·{" "}
+          {selectedType === "thumbnail"
+            ? "대표이미지"
+            : "상세페이지"}
+        </p>
+      </div>
+    </div>
+
+    {getConvertInfo()?.warning && (
+      <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+        <p className="text-sm leading-6 text-blue-700">
+          업로드 규격에 맞춰 이미지가 자동 분할됩니다.
+        </p>
+      </div>
+    )}
+  </section>
+)}
 
 
 
@@ -912,28 +926,21 @@ ${
 
         {/* 변환 버튼 */}
 
+<div className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+  <button
+    type="button"
+    onClick={convertImage}
+    className="flex w-full cursor-pointer items-center justify-center rounded-xl bg-gray-900 px-6 py-4 text-base font-bold text-white transition-all hover:bg-black active:scale-[0.99]"
+  >
+    변환하기
+  </button>
 
-        <div className="mt-8 text-center">
-
-
-          <button
-
-
-            onClick={convertImage}
-
-
-            className="rounded-xl bg-black px-10 py-4 text-lg font-bold text-white hover:bg-gray-800"
-
-
-          >
-
-            변환하기 →
-
-          </button>
-
-
-
-        </div>
+<p className="mt-3 text-center text-xs text-gray-400">
+  {selectedType === "thumbnail"
+    ? `플랫폼 규격에 맞는 ${outputFormat.toUpperCase()} 이미지로 변환됩니다.`
+    : `플랫폼 규격에 맞춰 크기 조정 후 ${outputFormat.toUpperCase()} ZIP 파일로 제공됩니다.`}
+</p>
+</div>
 
 
 
