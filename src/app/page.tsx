@@ -1,124 +1,16 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import JSZip from "jszip";
+import Link from "next/link";
+import { platforms } from "@/lib/platforms";
+import { FileThumbnail } from "@/components/file-thumbnail";
+import { drawThumbnail, encodeImage, type Fit } from "@/lib/image-converter";
 import {
-  ArrowRight,
-  Check,
-  FileImage,
-  Image as ImageIcon,
-  ImagePlus,
-  Upload,
-  WandSparkles,
+  ArrowDownToLine, ArrowRight, Check, ChevronDown, Crop, FileImage,
+  Image as ImageIcon, Images, Info, LoaderCircle, Maximize, Plus,
+  ShieldCheck, SlidersHorizontal, Sparkles, Upload, X,
 } from "lucide-react";
-
-
-const platforms = [
-  {
-    name: "네이버 스마트스토어",
-
-    thumbnail: {
-      width: 640,
-      height: 640,
-      sizeText: "640 × 640px",
-      maxSize: "최대 4MB",
-      format: "JPG, PNG, GIF, BMP",
-    },
-
-    detail: {
-      width: 860,
-      maxHeight: 5000,
-      sizeText: "가로 860px 권장",
-      height: "세로 5,000px 이하 권장",
-      maxSize: "최대 20MB",
-    },
-  },
-
-
-  {
-    name: "쿠팡",
-
-    thumbnail: {
-      width: 500,
-      height: 500,
-      sizeText: "500 × 500px",
-      maxSize: "최대 2MB",
-      format: "JPG, PNG",
-    },
-
-    detail: {
-      width: 780,
-      maxHeight: 3000,
-      sizeText: "가로 780px 권장",
-      height: "이미지 최대 3,000px 권장",
-      maxSize: "이미지당 최대 20MB",
-    },
-  },
-
-
-  {
-    name: "인스타그램",
-
-    thumbnail: {
-      width: 1080,
-      height: 1080,
-      sizeText: "1080 × 1080px",
-      maxSize: "-",
-      format: "JPG, PNG",
-    },
-
-    detail: {
-      width: 1080,
-      maxHeight: 1350,
-      sizeText: "1080 × 1350px",
-      height: "스토리 1080 × 1920px",
-      maxSize: "-",
-    },
-  },
-
-
-  {
-    name: "11번가",
-
-    thumbnail: {
-      width: 1000,
-      height: 1000,
-      sizeText: "1000 × 1000px",
-      maxSize: "-",
-      format: "JPG, PNG",
-    },
-
-    detail: {
-      width: 800,
-      maxHeight: 5000,
-      sizeText: "가로 800px",
-      height: "세로 제한 없음",
-      maxSize: "-",
-    },
-  },
-
-
-  {
-    name: "G마켓 / 옥션",
-
-    thumbnail: {
-      width: 1000,
-      height: 1000,
-      sizeText: "1000 × 1000px",
-      maxSize: "-",
-      format: "JPG, PNG",
-    },
-
-    detail: {
-      width: 860,
-      maxHeight: 4000,
-      sizeText: "가로 860px",
-      height: "세로 최대 4,000px",
-      maxSize: "-",
-    },
-  },
-];
-
 
 
 export default function Home() {
@@ -150,61 +42,94 @@ const [outputFormat, setOutputFormat] =
     });
 
 
-  const imageRef =
-    useRef<HTMLImageElement | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const nextJobId = useRef(0);
+  const [previewMode, setPreviewMode] = useState<"result" | "original">("result");
+  const [dragging, setDragging] = useState(false);
 
 
 
-  const uploadImage = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const [fit, setFit] = useState<Fit>("crop");
+  const [position, setPosition] = useState(0.5);
+  const [quality, setQuality] = useState(0.9);
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [status, setStatus] = useState("");
+  const previewRef = useRef<HTMLCanvasElement>(null);
+  const sourceRef = useRef<HTMLImageElement | null>(null);
+  const uploadId = useRef(0);
+  type Job = { id: number; file: File; fit: Fit; position: number; outcome: string };
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [activeId, setActiveId] = useState<number | null>(null);
 
+  const selectJob = async (job: Job) => {
+    const id = ++uploadId.current;
+    setLoading(true);
+    setActiveId(job.id);
+    setFileName(job.file.name);
+    setImage(null);
+    sourceRef.current = null;
+    setImageSize({ width: 0, height: 0 });
+    setFit(job.fit);
+    setPosition(job.position);
+    const url = URL.createObjectURL(job.file);
+    try {
+      const img = new Image();
+      img.src = url;
+      await img.decode();
+      if (!img.naturalWidth || img.naturalWidth * img.naturalHeight > 40_000_000) throw new Error("이미지는 4천만 픽셀 이하로 선택해주세요.");
+      if (id !== uploadId.current) { URL.revokeObjectURL(url); return; }
+      sourceRef.current = img;
+      setImageSize({ width: img.naturalWidth, height: img.naturalHeight });
+      setImage(url);
+    } catch {
+      URL.revokeObjectURL(url);
+      if (id === uploadId.current) setError(`${job.file.name}: 이미지를 읽을 수 없거나 해상도가 너무 큽니다.`);
+    } finally { if (id === uploadId.current) setLoading(false); }
+  };
 
-    const file =
-      e.target.files?.[0];
-
-
-    if(!file) return;
-
-
-
-    setFileName(file.name);
-
-
-
-    const url =
-      URL.createObjectURL(file);
-
-
-
-    setImage(url);
-
-
-
-    const img =
-      new Image();
-
-
-
-    img.onload = () => {
-
-      setImageSize({
-
-        width: img.width,
-
-        height: img.height,
-
-      });
-
-    };
-
-
-    img.src = url;
-
-
+  const updateFraming = (nextFit: Fit, nextPosition: number) => {
+    setFit(nextFit);
+    setPosition(nextPosition);
+    setJobs((items) => items.map((job) => job.id === activeId ? { ...job, fit: nextFit, position: nextPosition } : job));
   };
 
 
+  useEffect(() => () => { if (image) URL.revokeObjectURL(image); }, [image]);
+
+  useEffect(() => {
+    if (image && !loading && selectedType === "thumbnail" && previewRef.current && sourceRef.current) {
+      drawThumbnail(previewRef.current, sourceRef.current, selectedPlatform.thumbnail.width, fit, position);
+    }
+  }, [image, loading, selectedType, selectedPlatform, fit, position, previewMode]);
+
+  const addFiles = async (files: File[]) => {
+    if (!files.length || busy || loading) return;
+    setError("");
+    setStatus("");
+    if (files.length + jobs.length > 20 || [...jobs.map((job) => job.file), ...files].reduce((sum, file) => sum + file.size, 0) > 150 * 1024 * 1024) {
+      setError("한 번에 최대 20장, 합계 150MB까지 선택해주세요.");
+      return;
+    }
+    const accepted = files.filter((file) => ["image/jpeg", "image/png", "image/webp", "image/gif", "image/bmp"].includes(file.type) && file.size <= 30 * 1024 * 1024);
+    if (accepted.length !== files.length) setError("지원하지 않는 형식이나 30MB를 초과한 파일은 제외했습니다.");
+    if (!accepted.length) return;
+    const next = accepted.map((file) => ({ id: nextJobId.current++, file, fit: "crop" as Fit, position: 0.5, outcome: "대기" }));
+    setJobs((items) => [...items, ...next]);
+    if (!jobs.length) await selectJob(next[0]);
+  };
+
+  const removeJob = (id: number) => {
+    const remaining = jobs.filter((job) => job.id !== id);
+    setJobs(remaining);
+    setStatus("");
+    setError("");
+    if (activeId === id) {
+      if (remaining.length) void selectJob(remaining[0]);
+      else { setImage(null); setImageSize({ width: 0, height: 0 }); setFileName(""); setActiveId(null); sourceRef.current = null; }
+    }
+  };
 
   const getConvertInfo = () => {
 
@@ -258,696 +183,165 @@ const [outputFormat, setOutputFormat] =
 
 
   };
-    const convertImage = async () => {
-
-
-    if(!imageRef.current || !selectedType){
-
-      alert("이미지와 변환 규격을 선택하세요.");
-
-      return;
-
-    }
-
-
-
-    const img =
-      imageRef.current;
-
-    const mimeType =
-    outputFormat === "jpg"
-      ? "image/jpeg"
-      : outputFormat === "png"
-        ? "image/png"
-        : "image/webp";
-
-    const extension =
-      outputFormat === "jpg"
-        ? "jpg"
-        : outputFormat;
-
-
-
-    // 대표이미지 변환
-
-    if(selectedType === "thumbnail"){
-
-
-      const canvas =
-        document.createElement("canvas");
-
-
-      const ctx =
-        canvas.getContext("2d");
-
-
-      if(!ctx) return;
-
-
-
-      canvas.width =
-        selectedPlatform.thumbnail.width;
-
-
-      canvas.height =
-        selectedPlatform.thumbnail.height;
-
-
-
-      const sourceWidth = img.naturalWidth;
-const sourceHeight = img.naturalHeight;
-
-const sourceRatio = sourceWidth / sourceHeight;
-const targetRatio = canvas.width / canvas.height;
-
-let cropWidth = sourceWidth;
-let cropHeight = sourceHeight;
-let cropX = 0;
-let cropY = 0;
-
-if (sourceRatio > targetRatio) {
-  cropWidth = sourceHeight * targetRatio;
-  cropX = (sourceWidth - cropWidth) / 2;
-} else {
-  cropHeight = sourceWidth / targetRatio;
-  cropY = (sourceHeight - cropHeight) / 2;
-}
-
-ctx.drawImage(
-  img,
-  cropX,
-  cropY,
-  cropWidth,
-  cropHeight,
-  0,
-  0,
-  canvas.width,
-  canvas.height
-);
-
-
-
-      const link =
-        document.createElement("a");
-
-
-
-      link.download =
-  `${selectedPlatform.name}_대표이미지.${extension}`;
-
-link.href =
-  canvas.toDataURL(mimeType);
-
-
-
-      link.click();
-
-
-
-      return;
-
-    }
-
-
-
-
-    // 상세페이지 변환
-
-
-    const targetWidth =
-      selectedPlatform.detail.width;
-
-
-
-    const maxHeight =
-      selectedPlatform.detail.maxHeight;
-
-
-
-    const ratio =
-      targetWidth /
-      img.naturalWidth;
-
-
-
-    const totalHeight =
-      Math.round(
-        img.naturalHeight * ratio
-      );
-
-
-
-    const zip =
-      new JSZip();
-
-
-
-    let currentY = 0;
-
-    let index = 1;
-
-
-
-    while(currentY < totalHeight){
-
-
-
-      const sliceHeight =
-        Math.min(
-
-          maxHeight,
-
-          totalHeight - currentY
-
-        );
-
-
-
-      const canvas =
-        document.createElement("canvas");
-
-
-
-      const ctx =
-        canvas.getContext("2d");
-
-
-
-      if(!ctx) return;
-
-
-
-      canvas.width =
-        targetWidth;
-
-
-
-      canvas.height =
-        sliceHeight;
-
-
-
-      ctx.drawImage(
-
-        img,
-
-        0,
-
-        currentY / ratio,
-
-        img.naturalWidth,
-
-        sliceHeight / ratio,
-
-        0,
-
-        0,
-
-        targetWidth,
-
-        sliceHeight
-
-      );
-
-
-
-
-      const blob =
-        await new Promise<Blob | null>(
-
-          (resolve)=>
-
-            canvas.toBlob(
-              resolve,
-              mimeType,
-              0.9
-           )
-
-        );
-
-
-
-      if(blob){
-
-
-        zip.file(
-  `${selectedPlatform.name}_상세페이지_${String(index).padStart(2, "0")}.${extension}`,
-  blob
-);
-
-
+  const convertImage = async () => {
+    if (!jobs.length || busy || loading) return;
+    setBusy(true);
+    setError("");
+    setStatus("변환 중…");
+    setJobs((items) => items.map((job) => ({ ...job, outcome: "대기" })));
+    let downloadUrl: string | undefined;
+    try {
+      const archive = new JSZip();
+      let single: Blob | undefined;
+      let singleName = "";
+      let success = 0;
+      let archiveBytes = 0;
+      for (const [jobIndex, job] of jobs.entries()) {
+        let sourceUrl: string | undefined;
+        try {
+          setStatus(`이미지 변환 ${jobIndex + 1}/${jobs.length} · ${job.file.name}`);
+          await new Promise((resolve) => setTimeout(resolve, 0));
+          sourceUrl = URL.createObjectURL(job.file);
+          const img = new Image();
+          img.src = sourceUrl;
+          try { await img.decode(); } catch { throw new Error("이미지를 읽을 수 없습니다."); }
+          if (!img.naturalWidth || img.naturalWidth * img.naturalHeight > 40_000_000) throw new Error("4천만 픽셀을 초과합니다.");
+          const stem = job.file.name.replace(/\.[^.]+$/, "").replace(/[\/\\:*?"<>|\x00-\x1f]/g, "_").replace(/^\.+$/, "image").slice(0, 100) || "image";
+          const preset = selectedType === "thumbnail" ? selectedPlatform.thumbnail : selectedPlatform.detail;
+          const maxBytes = preset.maxBytes ?? Infinity;
+          const outputs: { name: string; blob: Blob }[] = [];
+          if (selectedType === "thumbnail") {
+            const canvas = document.createElement("canvas");
+            drawThumbnail(canvas, img, selectedPlatform.thumbnail.width, job.fit, job.position);
+            outputs.push({ name: `${stem}_대표이미지.${outputFormat}`, blob: await encodeImage(canvas, outputFormat, maxBytes, quality) });
+          } else {
+            const width = selectedPlatform.detail.width;
+            const ratio = width / img.naturalWidth;
+            const totalHeight = Math.max(1, Math.round(img.naturalHeight * ratio));
+            const maxHeight = selectedPlatform.detail.maxHeight;
+            if (Math.ceil(totalHeight / maxHeight) > 100 || width * totalHeight > 80_000_000) throw new Error("변환 결과가 너무 큽니다. 원본을 나눠주세요.");
+            for (let y = 0, index = 1; y < totalHeight; y += maxHeight, index++) {
+              const canvas = document.createElement("canvas");
+              canvas.width = width;
+              canvas.height = Math.min(maxHeight, totalHeight - y);
+              const ctx = canvas.getContext("2d");
+              if (!ctx) throw new Error("이미지 처리를 사용할 수 없습니다.");
+              ctx.fillStyle = "#fff";
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              ctx.drawImage(img, 0, y / ratio, img.naturalWidth, canvas.height / ratio, 0, 0, width, canvas.height);
+              outputs.push({ name: `${stem}_상세페이지_${String(index).padStart(2, "0")}.${outputFormat}`, blob: await encodeImage(canvas, outputFormat, maxBytes, quality) });
+            }
+          }
+          const bytes = outputs.reduce((sum, output) => sum + output.blob.size, 0);
+          if (archiveBytes + bytes > 200 * 1024 * 1024) throw new Error("전체 결과가 200MB를 초과합니다. 파일 수를 줄여주세요.");
+          archiveBytes += bytes;
+          for (const output of outputs) archive.file(jobs.length > 1 ? `${String(jobIndex + 1).padStart(2, "0")}_${stem}/${output.name}` : output.name, output.blob);
+          single = outputs[0].blob;
+          singleName = outputs[0].name;
+          success++;
+          setJobs((items) => items.map((item) => item.id === job.id ? { ...item, outcome: `완료 · ${outputs.length}개 파일` } : item));
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "변환 실패";
+          setJobs((items) => items.map((item) => item.id === job.id ? { ...item, outcome: `실패 · ${message}` } : item));
+        } finally { if (sourceUrl) URL.revokeObjectURL(sourceUrl); }
       }
-
-
-
-      currentY += sliceHeight;
-
-      index++;
-
-
+      if (!success) throw new Error("변환된 이미지가 없습니다. 파일별 실패 사유를 확인해주세요.");
+      const result = jobs.length === 1 && selectedType === "thumbnail" ? single! : await archive.generateAsync({ type: "blob" }, (metadata) => setStatus(`ZIP 생성 ${Math.round(metadata.percent)}%`));
+      const name = jobs.length === 1 && selectedType === "thumbnail" ? singleName : `${selectedPlatform.name.replace(/[\/\\]/g, "_")}_이미지.zip`;
+      if (success < jobs.length) setError(`${jobs.length - success}장 변환 실패. 성공한 ${success}장만 ZIP에 포함했습니다. 파일별 사유를 확인해주세요.`);
+      downloadUrl = URL.createObjectURL(result);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = name;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setStatus(`변환 ${success}/${jobs.length}장 완료 · ${(result.size / 1024 / 1024).toFixed(2)}MB · 다운로드를 요청했습니다.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "변환에 실패했습니다. 다른 이미지로 다시 시도해주세요.");
+      setStatus("");
+    } finally {
+      if (downloadUrl) { const url = downloadUrl; setTimeout(() => URL.revokeObjectURL(url), 60_000); }
+      setBusy(false);
     }
-
-
-
-
-    const content =
-      await zip.generateAsync({
-
-        type:"blob"
-
-      });
-
-
-
-    const link =
-      document.createElement("a");
-
-
-
-    link.href =
-      URL.createObjectURL(content);
-
-
-
-    link.download =
-      `${selectedPlatform.name}_상세페이지.zip`;
-
-
-
-    link.click();
-
-
   };
 
-
+  const info = getConvertInfo();
+  const sliceCount = info && selectedType === "detail" ? Math.ceil(info.height / selectedPlatform.detail.maxHeight) : 1;
+  const shortNames: Record<string, string> = { naver: "스마트스토어", coupang: "쿠팡", instagram: "인스타그램", "11st": "11번가", esm: "G마켓·옥션" };
+  const channelMarks: Record<string, string> = { naver: "N", coupang: "c", instagram: "◎", "11st": "11", esm: "G" };
+  const disabled = busy || loading;
 
   return (
+    <main className="studio">
+      <header className="site-header">
+        <Link className="brand" href="/" aria-label="샵몽 홈"><span className="brand-mark"><Crop size={23} strokeWidth={2.5} /></span><span>샵몽<span className="brand-dot">.</span></span></Link>
+        <span className="header-divider" />
+        <span className="header-label">셀러를 위한 이미지 작업실</span>
+        <div className="header-note"><ShieldCheck size={15} /> 이미지는 내 기기에서만 처리돼요</div>
+      </header>
 
-    <main className="min-h-screen bg-white px-6 py-10">
+      <div className="studio-body">
+        <section className="intro">
+          <div><p className="eyebrow"><span /> LESS EDITING, MORE SELLING</p><h1>상품 사진, 판매할 준비 끝.</h1><p className="intro-description">업로드하고, 규격을 고르고, 한 번에 내려받으세요.</p></div>
+          <div className="workflow" aria-label="작업 순서"><span className={jobs.length ? "step done" : "step current"}><b>{jobs.length ? <Check size={11} /> : "1"}</b>이미지 추가</span><span className="step-line"/><span className={jobs.length ? "step current" : "step"}><b>2</b>규격 설정</span><span className="step-line"/><span className="step"><b>3</b>다운로드</span></div>
+        </section>
 
+        {error && <div role="alert" className="notice error-notice"><Info size={17} /><span>{error}</span><button type="button" aria-label="오류 알림 닫기" onClick={() => setError("")}><X size={15}/></button></div>}
+        <p role="status" className={loading || status ? "notice status-notice" : "sr-only"}>{loading ? "이미지 읽는 중…" : status}</p>
 
-      <div className="mx-auto max-w-5xl">
-<header className="mb-10">
-  <div className="flex items-start justify-between gap-6">
-    <div className="flex items-center gap-3">
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm">
-        <WandSparkles size={23} strokeWidth={2.2} />
-      </div>
+        <fieldset disabled={disabled} className="workspace" aria-label="이미지 변환 작업실">
+          <section className="files-panel" aria-labelledby="files-title">
+            <div className="panel-heading"><h2 id="files-title">내 이미지 <span className="count-badge">{jobs.length.toString().padStart(2, "0")}</span></h2><button type="button" className="icon-button" aria-label="이미지 추가" onClick={() => inputRef.current?.click()}><Plus size={18}/></button></div>
+            <input ref={inputRef} id="image-upload" className="sr-only" type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif,image/bmp" aria-label="이미지 파일 선택" onChange={(event) => { const files = Array.from(event.target.files ?? []); event.target.value = ""; void addFiles(files); }} />
+            <button type="button" className={`upload-zone ${dragging ? "dragging" : ""}`} onClick={() => inputRef.current?.click()} onDragOver={(event) => { event.preventDefault(); if (!disabled) setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); void addFiles(Array.from(event.dataTransfer.files)); }}>
+              <span className="upload-icon"><Upload size={21}/></span><strong>이미지를 놓아주세요</strong><span>또는 클릭해서 파일 선택</span><small>최대 20장 · 파일당 30MB</small>
+            </button>
+            {jobs.length ? <ul className="file-list">{jobs.map((job, index) => <li key={job.id} className={`file-row ${activeId === job.id ? "active" : ""}`}>
+              <button type="button" className="file-select" aria-label={`${job.file.name} 미리보기 ${index + 1}`} aria-pressed={activeId === job.id} onClick={() => { setError(""); void selectJob(job); }}><FileThumbnail file={job.file}/><span className="file-text"><strong>{job.file.name}</strong><small className={job.outcome.startsWith("실패") ? "file-error" : ""}>{job.outcome === "대기" ? `${(job.file.size / 1024 / 1024).toFixed(1)} MB · 변환 대기` : job.outcome}</small></span></button>
+              <button type="button" className="file-remove" aria-label={`${job.file.name} 삭제 ${index + 1}`} onClick={() => removeJob(job.id)}><X size={13}/></button>
+            </li>)}</ul> : <div className="files-empty"><div className="ghost-row"><span/><i/><i/></div><div className="ghost-row"><span/><i/><i/></div><p>선택한 이미지가<br/>여기에 차곡차곡 모여요.</p></div>}
+            <div className="files-help"><Info size={14}/><p>JPG, PNG, WebP, GIF, BMP<br/>합계 150MB · 이미지당 4천만 픽셀<br/>GIF는 정지 이미지로 변환돼요.</p></div>
+          </section>
 
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-          샵몽
-        </h1>
-
-        <p className="mt-1 text-sm font-medium text-gray-500">
-          쇼핑몰 이미지 규격, 간편하게 맞춰보세요
-        </p>
-      </div>
-    </div>
-
-    <div className="hidden rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-500 md:block">
-      이미지 규격 자동 변환
-    </div>
-  </div>
-</header>
-
-
-
-
-        {/* 이미지 업로드 */}
-
-        <section className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
-  <div className="text-center">
-    {image ? (
-      <div className="mx-auto flex min-h-64 items-center justify-center rounded-2xl bg-gray-50 p-6">
-        <img
-          ref={imageRef}
-          src={image}
-          alt="업로드 이미지 미리보기"
-          className="max-h-72 max-w-full rounded-xl object-contain shadow-sm"
-        />
-      </div>
-    ) : (
-      <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
-        <ImagePlus size={32} strokeWidth={1.8} />
-      </div>
-    )}
-
-    <h2 className="mt-6 text-lg font-bold text-gray-900">
-      {fileName || "상품 이미지를 업로드하세요"}
-    </h2>
-
-    {!image && (
-      <p className="mt-2 text-sm text-gray-500">
-        JPG, PNG 등 이미지 파일을 선택해주세요.
-      </p>
-    )}
-
-    <label className="mt-6 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white shadow-sm transition-colors hover:bg-blue-700">
-      <Upload size={18} strokeWidth={2} />
-      {image ? "이미지 다시 선택" : "이미지 선택"}
-      <input
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={uploadImage}
-      />
-    </label>
-  </div>
-</section>
-
-
-
-
-
-
-
-        {/* 플랫폼 선택 */}
-
-
-        <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-  <div>
-    <h2 className="text-xl font-bold text-gray-900">플랫폼 선택</h2>
-    <p className="mt-1 text-sm text-gray-500">
-      변환할 쇼핑몰 플랫폼을 선택하세요.
-    </p>
-  </div>
-
-  <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-    {platforms.map((platform) => {
-      const isSelected = selectedPlatform.name === platform.name;
-
-      return (
-        <button
-          key={platform.name}
-          type="button"
-          onClick={() => setSelectedPlatform(platform)}
-          className={`group rounded-xl border p-4 text-left transition-all duration-150 ${
-            isSelected
-              ? "border-blue-600 bg-blue-50 ring-1 ring-blue-600"
-              : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
-          }`}
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3
-                className={`font-semibold ${
-                  isSelected ? "text-blue-700" : "text-gray-900"
-                }`}
-              >
-                {platform.name}
-              </h3>
-
-              <p className="mt-1 text-xs text-gray-500">
-                대표 {platform.thumbnail.width} ×{" "}
-                {platform.thumbnail.height}px
-              </p>
-
-              <p className="mt-1 text-xs text-gray-500">
-                상세 가로 {platform.detail.width}px
-              </p>
+          <section className="preview-panel" aria-labelledby="preview-title">
+            <div className="preview-toolbar"><h2 id="preview-title">미리보기 <span className="live-badge"><span/> LIVE</span></h2><div className="preview-tabs" aria-label="미리보기 종류"><button type="button" aria-pressed={previewMode === "original"} onClick={() => setPreviewMode("original")}>원본</button><button type="button" aria-pressed={previewMode === "result"} onClick={() => setPreviewMode("result")}>변환 결과</button></div></div>
+            <div className={`preview-stage ${image ? "has-image" : ""}`} onDragOver={(event) => { event.preventDefault(); }} onDrop={(event) => { event.preventDefault(); void addFiles(Array.from(event.dataTransfer.files)); }}>
+              {image ? <>
+                <div className="canvas-caption"><span className={`channel-dot ${selectedPlatform.id}`}/>{previewMode === "original" ? "원본 이미지" : `${shortNames[selectedPlatform.id]} · ${selectedType === "thumbnail" ? "대표이미지" : "상세페이지"}`}</div>
+                <div className={`image-surface ${selectedType === "detail" && previewMode === "result" ? "detail-surface" : ""}`}>
+                  {selectedType === "thumbnail" && previewMode === "result" ? <canvas ref={previewRef} aria-label="대표이미지 변환 결과"/> : <>
+                    {/* Local object URLs don't require Next image optimization. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={image} alt={previewMode === "original" ? "원본 이미지" : "상세페이지 전체 미리보기"}/>
+                    {selectedType === "detail" && previewMode === "result" && sliceCount > 1 && <span className="slice-overlay">{sliceCount}개 이미지로 나눠 저장</span>}
+                  </>}
+                </div>
+                <span className="dimension-label">{previewMode === "original" ? `${imageSize.width} × ${imageSize.height}` : info ? `${info.width} × ${info.height}` : ""}<small> px{selectedType === "detail" && previewMode === "result" ? " · 분할 전 전체" : ""}</small></span>
+              </> : loading ? <div className="preview-empty"><LoaderCircle className="spin" size={30}/><h3>이미지를 준비하고 있어요</h3></div> : <div className="preview-empty">
+                <div className="empty-art" aria-hidden="true"><div className="art-card art-back"><Images size={40} strokeWidth={1}/></div><div className="art-card art-front"><ImageIcon size={48} strokeWidth={1.2}/><span/><i/></div><div className="art-spark"><Sparkles size={21}/></div><span className="art-dimension">1000 × 1000</span></div>
+                <h3>좋은 상품 사진의 마지막 한 단계</h3><p>이미지를 추가하면<br/>판매 채널에 맞춘 결과를 바로 볼 수 있어요.</p><button type="button" className="empty-upload" onClick={() => inputRef.current?.click()}>첫 이미지 추가하기 <ArrowRight size={15}/></button>
+              </div>}
             </div>
+            {image && selectedType === "thumbnail" && fit === "crop" && previewMode === "result" && <div className="preview-crop-controls"><label htmlFor="crop-position"><Crop size={13}/>자르기 위치</label><input id="crop-position" aria-label="자르기 위치" type="range" min="0" max="1" step="0.01" value={position} onChange={(event) => updateFraming(fit, Number(event.target.value))}/><span>{Math.round(position * 100)}%</span></div>}
+            <div className="preview-footer"><span><Maximize size={13}/>{image ? <span className="preview-filename">{fileName}</span> : "크롭과 여백을 미리 확인하세요"}</span><span>{image ? `${jobs.findIndex((job) => job.id === activeId) + 1} / ${jobs.length}` : "실시간 미리보기"}</span></div>
+            <div className="preview-tip"><Sparkles size={15}/><p>{image ? "목록에서 이미지를 선택해 자르기 위치를 각각 조절할 수 있어요." : "여러 장도 한 번에. 같은 설정으로 바꾸고 ZIP으로 내려받으세요."}</p></div>
+          </section>
 
-            {isSelected && (
-              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white">
-                <Check size={15} strokeWidth={2.5} />
-              </div>
-            )}
-          </div>
-        </button>
-      );
-    })}
-  </div>
-</section>
+          <aside className="settings-panel" aria-labelledby="settings-title">
+            <div className="panel-heading settings-heading"><h2 id="settings-title"><SlidersHorizontal size={16}/> 변환 설정</h2><span>전체 이미지에 적용</span></div>
+            <section className="setting-group"><div className="setting-label"><span>01</span><h3>판매 채널</h3></div><div className="channel-grid">{platforms.map((platform) => <button type="button" key={platform.id} className={`channel-button ${selectedPlatform.id === platform.id ? "selected" : ""}`} aria-label={platform.name} aria-pressed={selectedPlatform.id === platform.id} onClick={() => { setSelectedPlatform(platform); if (selectedType === "thumbnail" && platform.thumbnail.allowedOutputs && !platform.thumbnail.allowedOutputs.includes(outputFormat)) setOutputFormat("jpg"); }}><span className={`channel-logo ${platform.id}`}>{channelMarks[platform.id]}</span><span>{shortNames[platform.id]}</span>{selectedPlatform.id === platform.id && <Check className="channel-check" size={12}/>}</button>)}</div></section>
+            <section className="setting-group"><div className="setting-label"><span>02</span><h3>이미지 용도</h3></div><div className="segmented type-tabs"><button type="button" aria-pressed={selectedType === "thumbnail"} onClick={() => { setSelectedType("thumbnail"); if (selectedPlatform.thumbnail.allowedOutputs && !selectedPlatform.thumbnail.allowedOutputs.includes(outputFormat)) setOutputFormat("jpg"); }}><ImageIcon size={14}/>대표이미지</button><button type="button" aria-pressed={selectedType === "detail"} onClick={() => setSelectedType("detail")}><FileImage size={14}/>{selectedPlatform.id === "instagram" ? "피드 세로형" : "상세페이지"}</button></div><div className="preset-summary"><span>{selectedType === "thumbnail" ? "출력 크기" : "출력 가로"}</span><strong>{selectedType === "thumbnail" ? `${selectedPlatform.thumbnail.width} × ${selectedPlatform.thumbnail.height}` : selectedPlatform.detail.width}<small> px</small></strong></div>
+              {selectedType === "thumbnail" ? <><label className="sub-label">이미지 맞추기</label><div className="fit-options"><button type="button" aria-pressed={fit === "crop"} onClick={() => updateFraming("crop", position)}><Crop size={15}/><span>꽉 채우기<small>가장자리 자르기</small></span></button><button type="button" aria-pressed={fit === "contain"} onClick={() => updateFraming("contain", 0.5)}><Maximize size={15}/><span>전체 보존<small>흰 여백 추가</small></span></button></div></> : <p className="setting-description">{selectedPlatform.detail.maxHeight.toLocaleString()}px 높이로 자동 분할해 ZIP으로 저장해요.</p>}
+            </section>
+            <section className="setting-group"><div className="setting-label"><span>03</span><h3>저장 형식</h3></div><div className="segmented format-tabs">{(["jpg", "png", "webp"] as const).map((format) => { const unsupported = selectedType === "thumbnail" && selectedPlatform.thumbnail.allowedOutputs !== null && !selectedPlatform.thumbnail.allowedOutputs.includes(format); return <button type="button" key={format} aria-pressed={outputFormat === format} disabled={unsupported} title={unsupported ? "공식 업로드 지원이 확인되지 않은 형식입니다" : undefined} onClick={() => setOutputFormat(format)}>{format === "webp" ? "WebP" : format.toUpperCase()}</button>; })}</div><p className="format-description">{outputFormat === "jpg" ? "호환성이 좋은 형식 · 흰 배경으로 저장" : outputFormat === "png" ? "화질 손실 없이 저장 · 파일 크기가 클 수 있어요" : "작은 파일 크기 · 채널별 업로드 지원을 확인하세요"}</p>{outputFormat !== "png" && <label className="slider-label">출력 품질 <span>{Math.round(quality * 100)}%</span><input aria-label="출력 품질" type="range" min="0.35" max="1" step="0.05" value={quality} onChange={(event) => setQuality(Number(event.target.value))}/><small>작은 용량 <span>선명한 화질</span></small></label>}</section>
+            <details className="spec-details"><summary><span><Info size={14}/>규격 정보와 출처</span><ChevronDown size={14}/></summary><div><strong>{selectedPlatform.evidence.status}</strong><p>{selectedPlatform.evidence.summary}</p><p>압축 기준: {selectedType === "thumbnail" ? selectedPlatform.thumbnail.maxSize : selectedPlatform.detail.maxSize}. 용량이 크면 품질을 자동으로 낮춰요.</p>{selectedPlatform.evidence.sources.map((source) => <a key={source.url} href={source.url} target="_blank" rel="noopener noreferrer">{source.label} ↗</a>)}{selectedPlatform.id === "naver" && selectedType === "thumbnail" && <p>WebP는 공식 업로드 지원이 확인되지 않아 선택에서 제외했어요.</p>}</div></details>
+          </aside>
+        </fieldset>
 
-
-
-
-
-
-
-        {/* 규격 선택 */}
-
-
-        <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-  <div>
-    <h2 className="text-xl font-bold text-gray-900">변환 규격 선택</h2>
-    <p className="mt-1 text-sm text-gray-500">
-      사용할 이미지 규격을 선택하세요.
-    </p>
-  </div>
-
-  <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
-    <button
-      type="button"
-      onClick={() => setSelectedType("thumbnail")}
-      className={`rounded-2xl border p-5 text-left transition-all ${
-        selectedType === "thumbnail"
-          ? "border-blue-600 bg-blue-50 ring-1 ring-blue-600"
-          : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
-      }`}
-    >
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <div
-            className={`flex h-11 w-11 items-center justify-center rounded-xl ${
-              selectedType === "thumbnail"
-                ? "bg-blue-600 text-white"
-                : "bg-gray-100 text-gray-500"
-            }`}
-          >
-            <ImageIcon size={21} />
-          </div>
-
-          <div>
-            <h3 className="font-bold text-gray-900">
-              대표이미지
-            </h3>
-            <p className="mt-0.5 text-xs text-gray-500">
-              상품 목록에 표시되는 이미지
-            </p>
-          </div>
-        </div>
-
-        {selectedType === "thumbnail" && (
-          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-white">
-            <Check size={15} strokeWidth={2.5} />
-          </div>
-        )}
+        <footer className="download-bar"><div className="download-summary"><span className="download-icon"><Images size={20}/></span><div><strong>{jobs.length ? `${jobs.length}장 변환 준비` : "이미지를 추가하고 시작해보세요"}</strong><p>{jobs.length ? `${shortNames[selectedPlatform.id]} · ${selectedType === "thumbnail" ? `${selectedPlatform.thumbnail.width} × ${selectedPlatform.thumbnail.height}px` : `가로 ${selectedPlatform.detail.width}px · 자동 분할`} · ${outputFormat.toUpperCase()}` : "복잡한 편집 없이, 판매 채널에 딱 맞게."}</p></div></div><div className="download-actions"><span className="download-hint">{jobs.length > 1 || selectedType === "detail" ? "ZIP 파일로 한 번에" : "원본은 그대로 보관돼요"}</span><button type="button" className="download-button" disabled={!jobs.length || disabled} onClick={convertImage}>{busy ? <LoaderCircle className="spin" size={17}/> : <ArrowDownToLine size={17}/>}<span>{busy ? "변환 중…" : jobs.length > 1 ? `${jobs.length}장 변환하고 다운로드` : "변환하고 다운로드"}</span>{!busy && <ArrowRight size={16}/>}</button></div></footer>
+        <div className="site-footer"><span>작업은 가볍게. 가능성은 더 크게.</span><span>MADE FOR YOUR NEXT SALE <span className="tiny-spark">✳</span></span></div>
       </div>
-
-      <div className="mt-5 rounded-xl bg-white/80 px-4 py-3">
-        <p className="text-xs font-medium text-gray-400">변환 규격</p>
-        <p className="mt-1 text-lg font-bold text-gray-900">
-          {selectedPlatform.thumbnail.width} ×{" "}
-          {selectedPlatform.thumbnail.height}px
-        </p>
-      </div>
-    </button>
-
-    <button
-      type="button"
-      onClick={() => setSelectedType("detail")}
-      className={`rounded-2xl border p-5 text-left transition-all ${
-        selectedType === "detail"
-          ? "border-blue-600 bg-blue-50 ring-1 ring-blue-600"
-          : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
-      }`}
-    >
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <div
-            className={`flex h-11 w-11 items-center justify-center rounded-xl ${
-              selectedType === "detail"
-                ? "bg-blue-600 text-white"
-                : "bg-gray-100 text-gray-500"
-            }`}
-          >
-            <FileImage size={21} />
-          </div>
-
-          <div>
-            <h3 className="font-bold text-gray-900">
-              상세페이지
-            </h3>
-            <p className="mt-0.5 text-xs text-gray-500">
-              상세페이지용 이미지로 변환
-            </p>
-          </div>
-        </div>
-
-        {selectedType === "detail" && (
-          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-white">
-            <Check size={15} strokeWidth={2.5} />
-          </div>
-        )}
-      </div>
-
-      <div className="mt-5 rounded-xl bg-white/80 px-4 py-3">
-        <p className="text-xs font-medium text-gray-400">변환 규격</p>
-        <p className="mt-1 text-lg font-bold text-gray-900">
-          가로 {selectedPlatform.detail.width}px
-        </p>
-        <p className="mt-1 text-xs text-gray-500">
-          {selectedPlatform.detail.height}
-        </p>
-      </div>
-    </button>
-  </div>
-</section>
-
-{/* 출력 형식 선택 */}
-<section className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-  <div>
-    <h2 className="text-xl font-bold text-gray-900">
-      출력 형식 선택
-    </h2>
-    <p className="mt-1 text-sm text-gray-500">
-      변환할 이미지의 파일 형식을 선택하세요.
-    </p>
-  </div>
-
-  <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-    {[
-      {
-        value: "jpg" as const,
-        name: "JPG",
-        description: "범용성이 높은 이미지 형식",
-      },
-      {
-        value: "png" as const,
-        name: "PNG",
-        description: "화질 손실 없이 저장",
-      },
-      {
-        value: "webp" as const,
-        name: "WebP",
-        description: "효율적인 이미지 형식",
-      },
-    ].map((format) => {
-      const isSelected = outputFormat === format.value;
-
-      return (
-        <button
-          key={format.value}
-          type="button"
-          onClick={() => setOutputFormat(format.value)}
-          className={`rounded-xl border p-4 text-left transition-all ${
-            isSelected
-              ? "border-blue-600 bg-blue-50 ring-1 ring-blue-600"
-              : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
-          }`}
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3
-                className={`font-bold ${
-                  isSelected ? "text-blue-700" : "text-gray-900"
-                }`}
-              >
-                {format.name}
-              </h3>
-
-              <p className="mt-1 text-xs text-gray-500">
-                {format.description}
-              </p>
-            </div>
-
-            {isSelected && (
-              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white">
-                <Check size={15} strokeWidth={2.5} />
-              </div>
-            )}
-          </div>
-        </button>
-      );
-    })}
-  </div>
-</section>
-
-                {/* 변환 예상 */}
-
-{imageSize.width > 0 && selectedType && (
-  <section className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-    <div>
-      <h2 className="text-xl font-bold text-gray-900">
-        변환 예상
-      </h2>
-
-      <p className="mt-1 text-sm text-gray-500">
-        현재 선택한 플랫폼과 규격으로 변환됩니다.
-      </p>
-    </div>
-
-    <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
-      <div className="rounded-2xl bg-gray-50 p-5">
-        <p className="text-xs font-semibold text-gray-400">
-          원본 이미지
-        </p>
-
-        <p className="mt-2 text-lg font-bold text-gray-900">
-          {imageSize.width} × {imageSize.height}px
-        </p>
-      </div>
-
-      <div className="rounded-2xl bg-blue-50 p-5">
-        <p className="text-xs font-semibold text-blue-500">
-          변환 결과
-        </p>
-
-        <p className="mt-2 text-lg font-bold text-gray-900">
-          {getConvertInfo()?.width} × {getConvertInfo()?.height}px
-        </p>
-
-        <p className="mt-1 text-sm text-gray-500">
-          {selectedPlatform.name} ·{" "}
-          {selectedType === "thumbnail"
-            ? "대표이미지"
-            : "상세페이지"}
-        </p>
-      </div>
-    </div>
-
-    {getConvertInfo()?.warning && (
-      <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
-        <p className="text-sm leading-6 text-blue-700">
-          업로드 규격에 맞춰 이미지가 자동 분할됩니다.
-        </p>
-      </div>
-    )}
-  </section>
-)}
-
-
-
-
-
-
-
-        {/* 변환 버튼 */}
-
-<div className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-  <button
-    type="button"
-    onClick={convertImage}
-    className="flex w-full cursor-pointer items-center justify-center rounded-xl bg-gray-900 px-6 py-4 text-base font-bold text-white transition-all hover:bg-black active:scale-[0.99]"
-  >
-    변환하기
-  </button>
-
-<p className="mt-3 text-center text-xs text-gray-400">
-  {selectedType === "thumbnail"
-    ? `플랫폼 규격에 맞는 ${outputFormat.toUpperCase()} 이미지로 변환됩니다.`
-    : `플랫폼 규격에 맞춰 크기 조정 후 ${outputFormat.toUpperCase()} ZIP 파일로 제공됩니다.`}
-</p>
-</div>
-
-
-
-      </div>
-
     </main>
-
   );
-
 }
