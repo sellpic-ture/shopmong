@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import JSZip from "jszip";
 import Link from "next/link";
+import NextImage from "next/image";
 import { platforms } from "@/lib/platforms";
 import { FileThumbnail } from "@/components/file-thumbnail";
 import { drawThumbnail, encodeImage, type Fit } from "@/lib/image-converter";
@@ -269,7 +270,7 @@ const [outputFormat, setOutputFormat] =
   const info = getConvertInfo();
   const sliceCount = info && selectedType === "detail" ? Math.ceil(info.height / selectedPlatform.detail.maxHeight) : 1;
   const shortNames: Record<string, string> = { naver: "스마트스토어", coupang: "쿠팡", instagram: "인스타그램", "11st": "11번가", esm: "G마켓·옥션" };
-  const channelMarks: Record<string, string> = { naver: "N", coupang: "c", instagram: "◎", "11st": "11", esm: "G" };
+  const channelLogos: Record<string, string> = { naver: "/brands/naver.png", coupang: "/brands/coupang.jpg", instagram: "/brands/instagram.svg", "11st": "/brands/11st.png", esm: "/brands/gmarket.png" };
   const disabled = busy || loading;
 
   return (
@@ -330,7 +331,7 @@ const [outputFormat, setOutputFormat] =
 
           <aside className="settings-panel" aria-labelledby="settings-title">
             <div className="panel-heading settings-heading"><h2 id="settings-title"><SlidersHorizontal size={16}/> 변환 설정</h2><span>전체 이미지에 적용</span></div>
-            <section className="setting-group"><div className="setting-label"><span>01</span><h3>판매 채널</h3></div><div className="channel-grid">{platforms.map((platform) => <button type="button" key={platform.id} className={`channel-button ${selectedPlatform.id === platform.id ? "selected" : ""}`} aria-label={platform.name} aria-pressed={selectedPlatform.id === platform.id} onClick={() => { setSelectedPlatform(platform); if (selectedType === "thumbnail" && platform.thumbnail.allowedOutputs && !platform.thumbnail.allowedOutputs.includes(outputFormat)) setOutputFormat("jpg"); }}><span className={`channel-logo ${platform.id}`}>{channelMarks[platform.id]}</span><span>{shortNames[platform.id]}</span>{selectedPlatform.id === platform.id && <Check className="channel-check" size={12}/>}</button>)}</div></section>
+            <section className="setting-group"><div className="setting-label"><span>01</span><h3>판매 채널</h3></div><div className="channel-grid">{platforms.map((platform) => <button type="button" key={platform.id} className={`channel-button ${selectedPlatform.id === platform.id ? "selected" : ""}`} aria-label={platform.name} aria-pressed={selectedPlatform.id === platform.id} onClick={() => { setSelectedPlatform(platform); if (selectedType === "thumbnail" && platform.thumbnail.allowedOutputs && !platform.thumbnail.allowedOutputs.includes(outputFormat)) setOutputFormat("jpg"); }}><span className={`channel-brand brand-${platform.id}`} aria-hidden="true"><NextImage src={channelLogos[platform.id]} alt="" width={platform.id === "coupang" ? 64 : 32} height={platform.id === "coupang" ? 64 : 32} unoptimized={platform.id === "instagram"} /></span><span>{shortNames[platform.id]}</span>{selectedPlatform.id === platform.id && <Check className="channel-check" size={12}/>}</button>)}</div></section>
             <section className="setting-group"><div className="setting-label"><span>02</span><h3>이미지 용도</h3></div><div className="segmented type-tabs"><button type="button" aria-pressed={selectedType === "thumbnail"} onClick={() => { setSelectedType("thumbnail"); if (selectedPlatform.thumbnail.allowedOutputs && !selectedPlatform.thumbnail.allowedOutputs.includes(outputFormat)) setOutputFormat("jpg"); }}><ImageIcon size={14}/>대표이미지</button><button type="button" aria-pressed={selectedType === "detail"} onClick={() => setSelectedType("detail")}><FileImage size={14}/>{selectedPlatform.id === "instagram" ? "피드 세로형" : "상세페이지"}</button></div><div className="preset-summary"><span>{selectedType === "thumbnail" ? "출력 크기" : "출력 가로"}</span><strong>{selectedType === "thumbnail" ? `${selectedPlatform.thumbnail.width} × ${selectedPlatform.thumbnail.height}` : selectedPlatform.detail.width}<small> px</small></strong></div>
               {selectedType === "thumbnail" ? <><label className="sub-label">이미지 맞추기</label><div className="fit-options"><button type="button" aria-pressed={fit === "crop"} onClick={() => updateFraming("crop", position)}><Crop size={15}/><span>꽉 채우기<small>가장자리 자르기</small></span></button><button type="button" aria-pressed={fit === "contain"} onClick={() => updateFraming("contain", 0.5)}><Maximize size={15}/><span>전체 보존<small>흰 여백 추가</small></span></button></div></> : <p className="setting-description">{selectedPlatform.detail.maxHeight.toLocaleString()}px 높이로 자동 분할해 ZIP으로 저장해요.</p>}
             </section>
